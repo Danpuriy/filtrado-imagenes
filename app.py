@@ -53,16 +53,35 @@ st.markdown(
 )
 
 # ---------------------------------------------------------------------------
+# Session state initialization
+# ---------------------------------------------------------------------------
+if "img_gray" not in st.session_state:
+    st.session_state.img_gray = None
+    st.session_state.img_source = None
+
+# ---------------------------------------------------------------------------
 # Sample images
 # ---------------------------------------------------------------------------
 st.sidebar.markdown("### 🖼️ Imágenes de prueba")
 col1, col2 = st.sidebar.columns(2)
 with col1:
-    btn_grad = st.button("📊 Gradiente")
-    btn_circ = st.button("🎯 Círculos")
+    if st.button("📊 Gradiente"):
+        st.session_state.img_gray = generar_imagen_prueba("gradiente")
+        st.session_state.img_source = "prueba_gradiente"
+        st.rerun()
+    if st.button("🎯 Círculos"):
+        st.session_state.img_gray = generar_imagen_prueba("circulos")
+        st.session_state.img_source = "prueba_circulos"
+        st.rerun()
 with col2:
-    btn_cuad = st.button("🏁 Cuadros")
-    btn_gris = st.button("⬜ Gris")
+    if st.button("🏁 Cuadros"):
+        st.session_state.img_gray = generar_imagen_prueba("cuadros")
+        st.session_state.img_source = "prueba_cuadros"
+        st.rerun()
+    if st.button("⬜ Gris"):
+        st.session_state.img_gray = generar_imagen_prueba("uniforme")
+        st.session_state.img_source = "prueba_gris"
+        st.rerun()
 
 # ---------------------------------------------------------------------------
 # File upload
@@ -73,37 +92,26 @@ uploaded = st.sidebar.file_uploader(
     help="Solo imágenes JPG/JPEG en blanco y negro.",
 )
 
+if st.sidebar.button("🔄 Limpiar imagen", type="secondary"):
+    st.session_state.img_gray = None
+    st.session_state.img_source = None
+    st.rerun()
+
 # ---------------------------------------------------------------------------
 # Decode image source
 # ---------------------------------------------------------------------------
-img_color = None
-img_source = None  # for download filename
+gray = None
+img_source = st.session_state.img_source
 
-if btn_grad:
-    gray = generar_imagen_prueba("gradiente")
-    img_source = "prueba_gradiente"
-elif btn_cuad:
-    gray = generar_imagen_prueba("cuadros")
-    img_source = "prueba_cuadros"
-elif btn_circ:
-    gray = generar_imagen_prueba("circulos")
-    img_source = "prueba_circulos"
-elif btn_gris:
-    gray = generar_imagen_prueba("uniforme")
-    img_source = "prueba_gris"
-elif uploaded is not None:
+if uploaded is not None:
     bytes_data = uploaded.getvalue()
     img_array = np.frombuffer(bytes_data, np.uint8)
     img_color = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-    img_source = uploaded.name.split(".")[0]
 
     if img_color is None:
         st.error("No se pudo decodificar la imagen. El archivo podría estar corrupto.")
         st.stop()
 
-    # -----------------------------------------------------------------------
-    # Validate & Convert
-    # -----------------------------------------------------------------------
     is_valid, msg = validate_image(img_color)
 
     if not is_valid:
@@ -121,6 +129,13 @@ elif uploaded is not None:
     else:
         st.success("✅ Imagen válida — blanco y negro aceptado.")
         gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+
+    st.session_state.img_gray = gray
+    st.session_state.img_source = uploaded.name.split(".")[0]
+
+elif st.session_state.img_gray is not None:
+    gray = st.session_state.img_gray
+
 else:
     st.info("👈 Usá una imagen de prueba en la barra lateral o subí un JPG.")
     st.stop()
