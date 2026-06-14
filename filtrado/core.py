@@ -4,6 +4,31 @@ import cv2
 import numpy as np
 
 
+def generar_imagen_prueba(tipo: str = "gradiente", size: int = 200) -> np.ndarray:
+    """Genera una imagen de prueba en escala de grises para probar la app."""
+    if tipo == "gradiente":
+        # Gradiente horizontal
+        return np.tile(np.linspace(0, 255, size, dtype=np.uint8), (size, 1))
+    elif tipo == "cuadros":
+        # Patrón de tablero de ajedrez
+        img = np.zeros((size, size), dtype=np.uint8)
+        bloque = size // 8
+        for i in range(8):
+            for j in range(8):
+                if (i + j) % 2 == 0:
+                    img[i*bloque:(i+1)*bloque, j*bloque:(j+1)*bloque] = 255
+        return img
+    elif tipo == "circulos":
+        # Círculos concéntricos
+        Y, X = np.ogrid[:size, :size]
+        center = size // 2
+        dist = np.sqrt((X - center)**2 + (Y - center)**2)
+        return (np.sin(dist * 0.1) * 127 + 128).astype(np.uint8)
+    else:
+        # Imagen uniforme gris
+        return np.full((size, size), 128, dtype=np.uint8)
+
+
 def validate_image(img: np.ndarray) -> tuple[bool, str]:
     """Validate image is B&W (single-channel or equal RGB) and ≥ 15×15.
 
@@ -81,24 +106,26 @@ def crop_manual(
     return img[y : y + size, x : x + size]
 
 
-def mean_filter(img: np.ndarray) -> np.ndarray:
-    """Apply a 3×3 mean (averaging) filter.
+def mean_filter(img: np.ndarray, kernel_size: int = 3) -> np.ndarray:
+    """Apply a mean (averaging) filter with configurable kernel size.
 
     Returns an array of the same shape and dtype as the input.
     """
-    return cv2.blur(img, (3, 3))
+    k = kernel_size if kernel_size % 2 == 1 else kernel_size + 1
+    return cv2.blur(img, (k, k))
 
 
-def median_filter(img: np.ndarray) -> np.ndarray:
-    """Apply a 3×3 median filter.
+def median_filter(img: np.ndarray, kernel_size: int = 3) -> np.ndarray:
+    """Apply a median filter with configurable kernel size.
 
     Returns an array of the same shape and dtype as the input.
     """
-    return cv2.medianBlur(img, 3)
+    k = kernel_size if kernel_size % 2 == 1 else kernel_size + 1
+    return cv2.medianBlur(img, k)
 
 
-def laplacian_filter(img: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Apply Laplacian edge detection.
+def laplacian_filter(img: np.ndarray, kernel_size: int = 3) -> tuple[np.ndarray, np.ndarray]:
+    """Apply Laplacian edge detection with configurable kernel size.
 
     Returns
     -------
@@ -106,14 +133,15 @@ def laplacian_filter(img: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         raw — cv2.Laplacian result as float64 (can contain negative values).
         normalized — rescaled to [0, 255] range as uint8.
     """
-    raw = cv2.Laplacian(img, cv2.CV_64F)
+    k = kernel_size if kernel_size % 2 == 1 else kernel_size + 1
+    raw = cv2.Laplacian(img, cv2.CV_64F, ksize=k)
     normalized = cv2.normalize(raw, None, 0, 255, cv2.NORM_MINMAX)
     normalized = normalized.astype(np.uint8)
     return raw, normalized
 
 
-def sobel_filter(img: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Apply Sobel edge detection (combined XY magnitude).
+def sobel_filter(img: np.ndarray, kernel_size: int = 3) -> tuple[np.ndarray, np.ndarray]:
+    """Apply Sobel edge detection (combined XY magnitude) with configurable kernel size.
 
     Returns
     -------
@@ -121,8 +149,9 @@ def sobel_filter(img: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         raw — combined gradient magnitude as float64.
         normalized — rescaled to [0, 255] range as uint8.
     """
-    grad_x = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
-    grad_y = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
+    k = kernel_size if kernel_size % 2 == 1 else kernel_size + 1
+    grad_x = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=k)
+    grad_y = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=k)
     raw = cv2.magnitude(grad_x, grad_y)
     normalized = cv2.normalize(raw, None, 0, 255, cv2.NORM_MINMAX)
     normalized = normalized.astype(np.uint8)

@@ -7,6 +7,7 @@ Run with:
 import streamlit as st
 import cv2
 import numpy as np
+from io import BytesIO
 
 from filtrado.core import (
     validate_image,
@@ -16,6 +17,7 @@ from filtrado.core import (
     median_filter,
     laplacian_filter,
     sobel_filter,
+    generar_imagen_prueba,
 )
 from filtrado.display import (
     show_digitalization_grid,
@@ -27,61 +29,120 @@ from filtrado.display import (
 # ---------------------------------------------------------------------------
 st.set_page_config(layout="wide", page_title="Filtrado de Imágenes")
 
-st.title("Filtrado de Imágenes")
+# ---------------------------------------------------------------------------
+# Sidebar — dark mode toggle
+# ---------------------------------------------------------------------------
+dark_mode = st.sidebar.toggle("🌙 Modo oscuro", value=False)
+if dark_mode:
+    st.markdown("""
+    <style>
+    .stApp { background-color: #1e1e1e; color: #e0e0e0; }
+    .stMarkdown, .stText, .stCaption, .stSubheader { color: #e0e0e0; }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.sidebar.markdown("### 🎛️ Controles")
+
+# ---------------------------------------------------------------------------
+# Title
+# ---------------------------------------------------------------------------
+st.title("🎨 Filtrado de Imágenes")
 st.markdown(
-    "Cargue una imagen **JPG en blanco y negro** para aplicar filtros "
-    "de procesamiento digital. El pipeline valida, recorta y filtra "
-    "la imagen mostrando la matriz de píxeles y su digitalización."
+    "Cargue una imagen **JPG en blanco y negro** o use una imagen de prueba "
+    "para aplicar filtros de procesamiento digital."
 )
+
+# ---------------------------------------------------------------------------
+# Sample images
+# ---------------------------------------------------------------------------
+st.sidebar.markdown("### 🖼️ Imágenes de prueba")
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    btn_grad = st.button("📊 Gradiente")
+    btn_circ = st.button("🎯 Círculos")
+with col2:
+    btn_cuad = st.button("🏁 Cuadros")
+    btn_gris = st.button("⬜ Gris")
 
 # ---------------------------------------------------------------------------
 # File upload
 # ---------------------------------------------------------------------------
-uploaded = st.file_uploader(
-    "Seleccione una imagen...",
+uploaded = st.sidebar.file_uploader(
+    "O suba una imagen...",
     type=["jpg", "jpeg"],
     help="Solo imágenes JPG/JPEG en blanco y negro.",
 )
 
-if uploaded is None:
-    st.info("Sube una imagen JPG para comenzar.")
-    st.stop()
-
-# Decode bytes → OpenCV array
-bytes_data = uploaded.getvalue()
-img_array = np.frombuffer(bytes_data, np.uint8)
-img_color = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-
-if img_color is None:
-    st.error("No se pudo decodificar la imagen. El archivo podría estar corrupto.")
-    st.stop()
-
 # ---------------------------------------------------------------------------
-# Validate & Convert
+# Decode image source
 # ---------------------------------------------------------------------------
-is_valid, msg = validate_image(img_color)
+img_color = None
+img_source = None  # for download filename
 
-if not is_valid:
-    # Color image detected — offer conversion
-    if "color" in msg.lower():
-        st.warning("⚠️ La imagen es a color. El programa funciona en blanco y negro.")
-        convertir = st.checkbox("Convertir a blanco y negro automáticamente", value=True)
-        if not convertir:
-            st.error("Imagen rechazada. Solo se aceptan imágenes en blanco y negro.")
-            st.stop()
-        gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
-        st.success("✅ Imagen convertida a blanco y negro exitosamente.")
-    else:
-        st.error(f"Imagen inválida: {msg}")
+if btn_grad:
+    gray = generar_imagen_prueba("gradiente")
+    img_source = "prueba_gradiente"
+elif btn_cuad:
+    gray = generar_imagen_prueba("cuadros")
+    img_source = "prueba_cuadros"
+elif btn_circ:
+    gray = generar_imagen_prueba("circulos")
+    img_source = "prueba_circulos"
+elif btn_gris:
+    gray = generar_imagen_prueba("uniforme")
+    img_source = "prueba_gris"
+elif uploaded is not None:
+    bytes_data = uploaded.getvalue()
+    img_array = np.frombuffer(bytes_data, np.uint8)
+    img_color = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    img_source = uploaded.name.split(".")[0]
+
+    if img_color is None:
+        st.error("No se pudo decodificar la imagen. El archivo podría estar corrupto.")
         st.stop()
+
+    # -----------------------------------------------------------------------
+    # Validate & Convert
+    # -----------------------------------------------------------------------
+    is_valid, msg = validate_image(img_color)
+
+    if not is_valid:
+        if "color" in msg.lower():
+            st.warning("⚠️ La imagen es a color. El programa funciona en blanco y negro.")
+            convertir = st.checkbox("Convertir a blanco y negro automáticamente", value=True)
+            if not convertir:
+                st.error("Imagen rechazada. Solo se aceptan imágenes en blanco y negro.")
+                st.stop()
+            gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+            st.success("✅ Imagen convertida a blanco y negro exitosamente.")
+        else:
+            st.error(f"Imagen inválida: {msg}")
+            st.stop()
+    else:
+        st.success("✅ Imagen válida — blanco y negro aceptado.")
+        gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
 else:
-    st.success("✅ Imagen válida — blanco y negro aceptado.")
-    gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+    st.info("👈 Usá una imagen de prueba en la barra lateral o subí un JPG.")
+    st.stop()
+
+# ---------------------------------------------------------------------------
+# Image info panel
+# ---------------------------------------------------------------------------
+with st.expander("📋 Información de la imagen", expanded=False):
+    cols_info = st.columns(4)
+    with cols_info[0]:
+        st.metric("Dimensiones", f"{gray.shape[1]}×{gray.shape[0]}")
+    with cols_info[1]:
+        st.metric("Valor mínimo", int(gray.min()))
+    with cols_info[2]:
+        st.metric("Valor máximo", int(gray.max()))
+    with cols_info[3]:
+        st.metric("Valor medio", f"{gray.mean():.1f}")
 
 # ---------------------------------------------------------------------------
 # Crop selection
 # ---------------------------------------------------------------------------
-st.markdown("### Recorte")
+st.markdown("### ✂️ Recorte")
 
 crop_option = st.radio(
     "Seleccione modo de recorte:",
@@ -110,24 +171,33 @@ else:
 st.caption(f"Dimensión final: {cropped.shape[1]}×{cropped.shape[0]} píxeles")
 
 # ---------------------------------------------------------------------------
-# Filter selection
+# Kernel size & Filter selection
 # ---------------------------------------------------------------------------
-st.markdown("### Filtro")
+st.markdown("### 🔧 Filtro")
 
-filter_option = st.selectbox(
-    "Seleccione un filtro:",
-    ["Media", "Mediana", "Laplaciano", "Sobel"],
-)
+col_kernel, col_filter = st.columns([1, 2])
+with col_kernel:
+    kernel_size = st.slider(
+        "Tamaño del kernel",
+        min_value=3, max_value=15, value=3, step=2,
+        help="Tamaño de la ventana del filtro (solo impares). "
+             "Valores más grandes = efecto más fuerte.",
+    )
+with col_filter:
+    filter_option = st.selectbox(
+        "Seleccione un filtro:",
+        ["Media", "Mediana", "Laplaciano", "Sobel"],
+    )
 
 is_edge = filter_option in ("Laplaciano", "Sobel")
 
 # ---------------------------------------------------------------------------
 # Process
 # ---------------------------------------------------------------------------
-if st.button("Aplicar filtro", type="primary"):
-    # -------- Original display (same for all filter types) --------
+if st.button("🚀 Aplicar filtro", type="primary"):
+    # -------- Original display --------
     st.markdown("---")
-    st.subheader("Imagen original")
+    st.subheader("🖼️ Imagen original")
     orig_col1, orig_col2 = st.columns(2)
     with orig_col1:
         st.image(cropped, caption="Original", clamp=True, use_container_width=True)
@@ -138,20 +208,19 @@ if st.button("Aplicar filtro", type="primary"):
 
     # -------- Apply the selected filter --------
     if filter_option == "Media":
-        result = mean_filter(cropped)
+        result = mean_filter(cropped, kernel_size=kernel_size)
         raw = None
     elif filter_option == "Mediana":
-        result = median_filter(cropped)
+        result = median_filter(cropped, kernel_size=kernel_size)
         raw = None
     elif filter_option == "Laplaciano":
-        raw, result = laplacian_filter(cropped)
-    else:  # Sobel
-        raw, result = sobel_filter(cropped)
+        raw, result = laplacian_filter(cropped, kernel_size=kernel_size)
+    else:
+        raw, result = sobel_filter(cropped, kernel_size=kernel_size)
 
     # -------- Results display --------
     if is_edge:
-        # -- Edge filters (Laplacian / Sobel): show matrices first --
-        st.subheader("Matrices del filtrado")
+        st.subheader("📊 Matrices del filtrado")
         mat_col1, mat_col2 = st.columns(2)
         with mat_col1:
             fig_raw = show_digitalization_grid(raw)
@@ -162,30 +231,41 @@ if st.button("Aplicar filtro", type="primary"):
             st.pyplot(fig_norm)
             st.caption("Matriz re-escalada (0–255 — uint8)")
 
-        st.subheader("Imagen resultante")
+        st.subheader("🖼️ Imagen resultante")
         res_col1, res_col2 = st.columns(2)
         with res_col1:
-            st.image(result, caption=f"Filtro {filter_option}",
+            st.image(result, caption=f"Filtro {filter_option} (kernel {kernel_size}×{kernel_size})",
                      clamp=True, use_container_width=True)
         with res_col2:
             fig_res_dig = show_digitalization_grid(result)
             st.pyplot(fig_res_dig)
             st.caption("Digitalización de la imagen resultante")
     else:
-        # -- Smoothing filters (Mean / Median) --
-        st.subheader("Imagen resultante")
+        st.subheader("🖼️ Imagen resultante")
         res_col1, res_col2 = st.columns(2)
         with res_col1:
-            st.image(result, caption=f"Filtro {filter_option}",
+            st.image(result, caption=f"Filtro {filter_option} (kernel {kernel_size}×{kernel_size})",
                      clamp=True, use_container_width=True)
         with res_col2:
             fig_res_dig = show_digitalization_grid(result)
             st.pyplot(fig_res_dig)
             st.caption("Digitalización — matriz obtenida tras el filtro")
 
-    # -------- Comparison (always shown) --------
-    st.subheader("Comparación")
+    # -------- Comparison --------
+    st.subheader("📈 Comparación")
     fig_comp = show_filter_comparison(
         cropped, result, title=f"Original vs {filter_option}"
     )
     st.pyplot(fig_comp)
+
+    # -------- Download button --------
+    _, result_bytes = cv2.imencode(".png", result)
+    buf = BytesIO(result_bytes.tobytes())
+
+    st.sidebar.markdown("### 💾 Descargar")
+    st.sidebar.download_button(
+        label="📥 Descargar imagen procesada",
+        data=buf,
+        file_name=f"{img_source}_filtrado_{filter_option.lower()}.png",
+        mime="image/png",
+    )
