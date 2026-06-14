@@ -217,13 +217,12 @@ is_edge = filter_option in ("Laplaciano", "Sobel")
 # Apply button — stores everything in session_state
 # ---------------------------------------------------------------------------
 if st.button("🚀 Aplicar filtro", type="primary"):
-    result_img = None
-    raw_img = None
-
     if filter_option == "Media":
         result_img = mean_filter(cropped, kernel_size=kernel_size)
+        raw_img = None
     elif filter_option == "Mediana":
         result_img = median_filter(cropped, kernel_size=kernel_size)
+        raw_img = None
     elif filter_option == "Laplaciano":
         raw_img, result_img = laplacian_filter(cropped, kernel_size=kernel_size)
     else:
@@ -245,71 +244,84 @@ if st.session_state.result is not None:
 
     st.markdown("---")
 
-    # -------- 1. Original display + digitalization + text matrix --------
-    st.subheader("🖼️ Muestra 1 — Imagen original")
+    # -------- Original image + digitalization + matrix (always shown) --------
+    st.subheader("🖼️ Imagen inicial y digitalización")
     orig_col1, orig_col2 = st.columns(2)
     with orig_col1:
-        st.image(cropped, caption="Original", clamp=True, use_container_width=True)
+        st.image(cropped, caption="Imagen Inicial (recorte)", clamp=True, use_container_width=True)
     with orig_col2:
         fig_orig_dig = show_digitalization_grid(cropped)
         st.pyplot(fig_orig_dig)
-        st.caption("Digitalización — matriz de píxeles")
+        st.caption("Digitalización Inicial — matriz de píxeles")
 
-    with st.expander("📄 Matriz numérica de la imagen original", expanded=False):
-        st.code(show_matrix_text(cropped, "Original"), language="text")
+    st.markdown("**Matriz numérica inicial:**")
+    st.code(show_matrix_text(cropped, "Inicial"), language="text")
 
-    # -------- 2. Filter-specific displays --------
+    # -------- Per filter: exact PDF layout --------
     if is_edge:
-        # Raw matrix
-        st.subheader(f"📊 Muestra 2 — Matriz resultante del filtrado ({filter_name})")
-        mat_col1, mat_col2 = st.columns(2)
-        with mat_col1:
+        # Figura 4 del PDF: 2×3 grid
+        st.subheader(f"📊 Filtro {filter_name} — matriz resultante y re-escalado")
+        edge_col1, edge_col2, edge_col3 = st.columns(3)
+        with edge_col1:
+            fig_dig = show_digitalization_grid(cropped)
+            st.pyplot(fig_dig)
+            st.caption("Digitalización Inicial")
+        with edge_col2:
             fig_raw = show_digitalization_grid(raw_img)
             st.pyplot(fig_raw)
-            st.caption(f"Matriz cruda ({filter_name}) — valores float64")
-        with mat_col2:
+            st.caption("Matriz Resultante del Filtrado")
+        with edge_col3:
             fig_norm = show_digitalization_grid(result_img)
             st.pyplot(fig_norm)
-            st.caption("Matriz re-escalada (0–255 — uint8)")
+            st.caption("Matriz Re-escalada (0–255)")
 
-        with st.expander("📄 Matriz numérica del resultado (re-escalada)", expanded=False):
-            st.code(show_matrix_text(result_img, f"Re-escalada — {filter_name}"), language="text")
-
-        # Result image
-        st.subheader("🖼️ Muestra 3 — Imagen resultante del filtrado")
-        res_col1, res_col2 = st.columns(2)
-        with res_col1:
+        # Second row of the 2×3
+        edge2_col1, edge2_col2, edge2_col3 = st.columns(3)
+        with edge2_col1:
+            st.code(show_matrix_text(raw_img, "Resultante Filtrado"), language="text")
+        with edge2_col2:
             st.image(result_img,
-                     caption=f"Filtro {filter_name} (kernel {kernel_size}×{kernel_size})",
+                     caption=f"Imagen Resultante — {filter_name}",
                      clamp=True, use_container_width=True)
-        with res_col2:
+        with edge2_col3:
             fig_res_dig = show_digitalization_grid(result_img)
             st.pyplot(fig_res_dig)
-            st.caption("Digitalización de la imagen resultante")
+            st.caption("Digitalización Resultante")
+
     else:
-        # Smoothing filters
-        st.subheader(f"🖼️ Muestra 2 — Imagen resultante ({filter_name})")
-        res_col1, res_col2 = st.columns(2)
-        with res_col1:
+        # Figura 3 del PDF: 2×2 grid + text matrices
+        st.subheader(f"📊 Filtro {filter_name} — imagen resultante")
+        sm_col1, sm_col2 = st.columns(2)
+        with sm_col1:
             st.image(result_img,
-                     caption=f"Filtro {filter_name} (kernel {kernel_size}×{kernel_size})",
+                     caption=f"Imagen Resultante — {filter_name}",
                      clamp=True, use_container_width=True)
-        with res_col2:
+        with sm_col2:
             fig_res_dig = show_digitalization_grid(result_img)
             st.pyplot(fig_res_dig)
-            st.caption("Digitalización — matriz obtenida tras el filtro")
+            st.caption("Digitalización Resultante")
 
-        with st.expander("📄 Matriz numérica del resultado", expanded=False):
-            st.code(show_matrix_text(result_img, f"Resultado — {filter_name}"), language="text")
+        # Second row of the 2×2: comparison grid
+        st.markdown("---")
+        st.subheader("📈 Comparación — Inicial vs Resultante")
+        comp_col1, comp_col2 = st.columns(2)
+        with comp_col1:
+            fig_comp_init = show_digitalization_grid(cropped)
+            st.pyplot(fig_comp_init)
+            st.caption("Digitalización Inicial")
+        with comp_col2:
+            fig_comp_res = show_digitalization_grid(result_img)
+            st.pyplot(fig_comp_res)
+            st.caption("Digitalización Resultante")
 
-    # -------- 3. Comparison (Original vs Result) --------
-    st.subheader("📈 Comparación — Original vs Filtrada")
-    fig_comp = show_filter_comparison(
-        cropped, result_img, title=f"Original vs {filter_name}"
-    )
-    st.pyplot(fig_comp)
+        st.markdown("**Matriz numérica inicial vs resultante:**")
+        mat_col1, mat_col2 = st.columns(2)
+        with mat_col1:
+            st.code(show_matrix_text(cropped, "Inicial"), language="text")
+        with mat_col2:
+            st.code(show_matrix_text(result_img, f"Resultante — {filter_name}"), language="text")
 
-    # -------- 4. Sidebar download --------
+    # -------- Download --------
     _, result_bytes = cv2.imencode(".png", result_img)
     buf = BytesIO(result_bytes.tobytes())
 
