@@ -57,17 +57,26 @@ if img_color is None:
     st.stop()
 
 # ---------------------------------------------------------------------------
-# Validate
+# Validate & Convert
 # ---------------------------------------------------------------------------
 is_valid, msg = validate_image(img_color)
+
 if not is_valid:
-    st.error(f"Imagen inválida: {msg}")
-    st.stop()
-
-st.success("Imagen válida — blanco y negro aceptado.")
-
-# Convert validated image to grayscale for processing
-gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+    # Color image detected — offer conversion
+    if "color" in msg.lower():
+        st.warning("⚠️ La imagen es a color. El programa funciona en blanco y negro.")
+        convertir = st.checkbox("Convertir a blanco y negro automáticamente", value=True)
+        if not convertir:
+            st.error("Imagen rechazada. Solo se aceptan imágenes en blanco y negro.")
+            st.stop()
+        gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+        st.success("✅ Imagen convertida a blanco y negro exitosamente.")
+    else:
+        st.error(f"Imagen inválida: {msg}")
+        st.stop()
+else:
+    st.success("✅ Imagen válida — blanco y negro aceptado.")
+    gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
 
 # ---------------------------------------------------------------------------
 # Crop selection
