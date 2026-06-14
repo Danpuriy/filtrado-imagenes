@@ -337,18 +337,30 @@ if st.session_state.result is not None:
             st.pyplot(fig_norm)
             st.caption("Matriz Re-escalada (0–255)")
 
-        # Second row of the 2×3
+        # Second row: text matrices + result image + result digitalization
         edge2_col1, edge2_col2, edge2_col3 = st.columns(3)
         with edge2_col1:
-            st.code(show_matrix_text(raw_img, "Resultante Filtrado"), language="text")
+            st.markdown("**Matriz numérica inicial:**")
+            st.code(show_matrix_text(cropped, "Inicial"), language="text")
         with edge2_col2:
+            st.markdown("**Matriz numérica resultante (re-escalada):**")
+            st.code(show_matrix_text(result_img, f"Re-escalada — {filter_name}"), language="text")
+        with edge2_col3:
             st.image(result_img,
                      caption=f"Imagen Resultante — {filter_name}",
                      clamp=True, use_container_width=True)
-        with edge2_col3:
+
+        # Third row: result digitalization
+        st.markdown("---")
+        st.subheader("📈 Digitalización Resultante")
+        res_dig_col1, res_dig_col2 = st.columns(2)
+        with res_dig_col1:
             fig_res_dig = show_digitalization_grid(result_img)
             st.pyplot(fig_res_dig)
             st.caption("Digitalización Resultante")
+        with res_dig_col2:
+            st.markdown("**Matriz numérica resultante:**")
+            st.code(show_matrix_text(result_img, f"Resultante — {filter_name}"), language="text")
 
     else:
         # Figura 3 del PDF: 2×2 grid + text matrices
@@ -363,25 +375,31 @@ if st.session_state.result is not None:
             st.pyplot(fig_res_dig)
             st.caption("Digitalización Resultante")
 
-        # Second row of the 2×2: comparison grid
+        # Matrices textuales: inicial vs resultante
         st.markdown("---")
-        st.subheader("📈 Comparación — Inicial vs Resultante")
+        st.subheader("📄 Matrices numéricas")
+        mat_col1, mat_col2 = st.columns(2)
+        with mat_col1:
+            st.markdown("**Matriz numérica inicial:**")
+            st.code(show_matrix_text(cropped, "Inicial"), language="text")
+        with mat_col2:
+            st.markdown("**Matriz numérica resultante:**")
+            st.code(show_matrix_text(result_img, f"Resultante — {filter_name}"), language="text")
+
+        # Comparación visual: 2×2 grid (Imagen + Digitalización)
+        st.markdown("---")
+        st.subheader("📈 Comparación visual — Inicial vs Resultante")
         comp_col1, comp_col2 = st.columns(2)
         with comp_col1:
+            st.image(cropped, caption="Imagen Inicial", clamp=True, use_container_width=True)
             fig_comp_init = show_digitalization_grid(cropped)
             st.pyplot(fig_comp_init)
             st.caption("Digitalización Inicial")
         with comp_col2:
+            st.image(result_img, caption=f"Imagen Resultante — {filter_name}", clamp=True, use_container_width=True)
             fig_comp_res = show_digitalization_grid(result_img)
             st.pyplot(fig_comp_res)
             st.caption("Digitalización Resultante")
-
-        st.markdown("**Matriz numérica inicial vs resultante:**")
-        mat_col1, mat_col2 = st.columns(2)
-        with mat_col1:
-            st.code(show_matrix_text(cropped, "Inicial"), language="text")
-        with mat_col2:
-            st.code(show_matrix_text(result_img, f"Resultante — {filter_name}"), language="text")
 
     # -------- Download --------
     _, result_bytes = cv2.imencode(".png", result_img)
