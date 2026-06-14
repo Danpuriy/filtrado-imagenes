@@ -59,6 +59,26 @@ def show_digitalization_grid(img: np.ndarray) -> plt.Figure:
     return fig
 
 
+def show_matrix_text(img: np.ndarray, label: str = "Matriz") -> str:
+    """Return a string representation of the pixel matrix, like the original notebook.
+
+    Example output
+    --------------
+    F1: 120 121 119 118
+    F2: 118 122 120 117
+    ...
+    """
+    lines = [f"📊 {label}"]
+    for i, fila in enumerate(img):
+        # If float (raw edge result), show with 1 decimal; otherwise as integer
+        if np.issubdtype(img.dtype, np.floating):
+            vals = " ".join(f"{float(v):6.1f}" for v in fila)
+        else:
+            vals = " ".join(f"{int(v):3d}" for v in fila)
+        lines.append(f"F{i+1}: {vals}")
+    return "\n".join(lines)
+
+
 def show_filter_comparison(
     original: np.ndarray,
     filtered: np.ndarray,

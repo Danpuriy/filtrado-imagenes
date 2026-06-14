@@ -22,6 +22,7 @@ from filtrado.core import (
 from filtrado.display import (
     show_digitalization_grid,
     show_filter_comparison,
+    show_matrix_text,
 )
 
 # ---------------------------------------------------------------------------
@@ -58,6 +59,9 @@ st.markdown(
 if "img_gray" not in st.session_state:
     st.session_state.img_gray = None
     st.session_state.img_source = None
+    st.session_state.result = None
+    st.session_state.raw = None
+    st.session_state.filter_applied = None
 
 # ---------------------------------------------------------------------------
 # Sample images
@@ -95,6 +99,9 @@ uploaded = st.sidebar.file_uploader(
 if st.sidebar.button("🔄 Limpiar imagen", type="secondary"):
     st.session_state.img_gray = None
     st.session_state.img_source = None
+    st.session_state.result = None
+    st.session_state.raw = None
+    st.session_state.filter_applied = None
     st.rerun()
 
 # ---------------------------------------------------------------------------
@@ -207,12 +214,39 @@ with col_filter:
 is_edge = filter_option in ("Laplaciano", "Sobel")
 
 # ---------------------------------------------------------------------------
-# Process
+# Apply button — stores everything in session_state
 # ---------------------------------------------------------------------------
 if st.button("🚀 Aplicar filtro", type="primary"):
-    # -------- Original display --------
+    result_img = None
+    raw_img = None
+
+    if filter_option == "Media":
+        result_img = mean_filter(cropped, kernel_size=kernel_size)
+    elif filter_option == "Mediana":
+        result_img = median_filter(cropped, kernel_size=kernel_size)
+    elif filter_option == "Laplaciano":
+        raw_img, result_img = laplacian_filter(cropped, kernel_size=kernel_size)
+    else:
+        raw_img, result_img = sobel_filter(cropped, kernel_size=kernel_size)
+
+    st.session_state.result = result_img
+    st.session_state.raw = raw_img
+    st.session_state.filter_applied = filter_option
+    st.rerun()
+
+# ---------------------------------------------------------------------------
+# Results display (from session_state — persists across reruns)
+# ---------------------------------------------------------------------------
+if st.session_state.result is not None:
+    is_edge = st.session_state.filter_applied in ("Laplaciano", "Sobel")
+    result_img = st.session_state.result
+    raw_img = st.session_state.raw
+    filter_name = st.session_state.filter_applied
+
     st.markdown("---")
-    st.subheader("🖼️ Imagen original")
+
+    # -------- 1. Original display + digitalization + text matrix --------
+    st.subheader("🖼️ Muestra 1 — Imagen original")
     orig_col1, orig_col2 = st.columns(2)
     with orig_col1:
         st.image(cropped, caption="Original", clamp=True, use_container_width=True)
@@ -221,66 +255,68 @@ if st.button("🚀 Aplicar filtro", type="primary"):
         st.pyplot(fig_orig_dig)
         st.caption("Digitalización — matriz de píxeles")
 
-    # -------- Apply the selected filter --------
-    if filter_option == "Media":
-        result = mean_filter(cropped, kernel_size=kernel_size)
-        raw = None
-    elif filter_option == "Mediana":
-        result = median_filter(cropped, kernel_size=kernel_size)
-        raw = None
-    elif filter_option == "Laplaciano":
-        raw, result = laplacian_filter(cropped, kernel_size=kernel_size)
-    else:
-        raw, result = sobel_filter(cropped, kernel_size=kernel_size)
+    with st.expander("📄 Matriz numérica de la imagen original", expanded=False):
+        st.code(show_matrix_text(cropped, "Original"), language="text")
 
-    # -------- Results display --------
+    # -------- 2. Filter-specific displays --------
     if is_edge:
-        st.subheader("📊 Matrices del filtrado")
+        # Raw matrix
+        st.subheader(f"📊 Muestra 2 — Matriz resultante del filtrado ({filter_name})")
         mat_col1, mat_col2 = st.columns(2)
         with mat_col1:
-            fig_raw = show_digitalization_grid(raw)
+            fig_raw = show_digitalization_grid(raw_img)
             st.pyplot(fig_raw)
-            st.caption("Matriz resultante del filtrado (raw — float64)")
+            st.caption(f"Matriz cruda ({filter_name}) — valores float64")
         with mat_col2:
-            fig_norm = show_digitalization_grid(result)
+            fig_norm = show_digitalization_grid(result_img)
             st.pyplot(fig_norm)
             st.caption("Matriz re-escalada (0–255 — uint8)")
 
-        st.subheader("🖼️ Imagen resultante")
+        with st.expander("📄 Matriz numérica del resultado (re-escalada)", expanded=False):
+            st.code(show_matrix_text(result_img, f"Re-escalada — {filter_name}"), language="text")
+
+        # Result image
+        st.subheader("🖼️ Muestra 3 — Imagen resultante del filtrado")
         res_col1, res_col2 = st.columns(2)
         with res_col1:
-            st.image(result, caption=f"Filtro {filter_option} (kernel {kernel_size}×{kernel_size})",
+            st.image(result_img,
+                     caption=f"Filtro {filter_name} (kernel {kernel_size}×{kernel_size})",
                      clamp=True, use_container_width=True)
         with res_col2:
-            fig_res_dig = show_digitalization_grid(result)
+            fig_res_dig = show_digitalization_grid(result_img)
             st.pyplot(fig_res_dig)
             st.caption("Digitalización de la imagen resultante")
     else:
-        st.subheader("🖼️ Imagen resultante")
+        # Smoothing filters
+        st.subheader(f"🖼️ Muestra 2 — Imagen resultante ({filter_name})")
         res_col1, res_col2 = st.columns(2)
         with res_col1:
-            st.image(result, caption=f"Filtro {filter_option} (kernel {kernel_size}×{kernel_size})",
+            st.image(result_img,
+                     caption=f"Filtro {filter_name} (kernel {kernel_size}×{kernel_size})",
                      clamp=True, use_container_width=True)
         with res_col2:
-            fig_res_dig = show_digitalization_grid(result)
+            fig_res_dig = show_digitalization_grid(result_img)
             st.pyplot(fig_res_dig)
             st.caption("Digitalización — matriz obtenida tras el filtro")
 
-    # -------- Comparison --------
-    st.subheader("📈 Comparación")
+        with st.expander("📄 Matriz numérica del resultado", expanded=False):
+            st.code(show_matrix_text(result_img, f"Resultado — {filter_name}"), language="text")
+
+    # -------- 3. Comparison (Original vs Result) --------
+    st.subheader("📈 Comparación — Original vs Filtrada")
     fig_comp = show_filter_comparison(
-        cropped, result, title=f"Original vs {filter_option}"
+        cropped, result_img, title=f"Original vs {filter_name}"
     )
     st.pyplot(fig_comp)
 
-    # -------- Download button --------
-    _, result_bytes = cv2.imencode(".png", result)
+    # -------- 4. Sidebar download --------
+    _, result_bytes = cv2.imencode(".png", result_img)
     buf = BytesIO(result_bytes.tobytes())
 
     st.sidebar.markdown("### 💾 Descargar")
     st.sidebar.download_button(
         label="📥 Descargar imagen procesada",
         data=buf,
-        file_name=f"{img_source}_filtrado_{filter_option.lower()}.png",
+        file_name=f"{img_source}_filtrado_{filter_name.lower()}.png",
         mime="image/png",
     )
