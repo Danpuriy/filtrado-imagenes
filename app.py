@@ -162,19 +162,17 @@ with st.expander("📋 Información de la imagen", expanded=False):
         st.metric("Valor medio", f"{gray.mean():.1f}")
 
 # ---------------------------------------------------------------------------
-# Crop selection
+# Crop selection — must be 15×15 per project spec
 # ---------------------------------------------------------------------------
-st.markdown("### ✂️ Recorte")
+st.markdown("### ✂️ Recorte 15×15")
 
 crop_option = st.radio(
     "Seleccione modo de recorte:",
-    ["Imagen completa", "Recorte 15×15 (centro)", "Recorte 15×15 (manual)"],
+    ["Centro automático", "Manual (ingresar coordenadas)"],
     horizontal=True,
 )
 
-if crop_option == "Imagen completa":
-    cropped = gray
-elif crop_option == "Recorte 15×15 (centro)":
+if crop_option == "Centro automático":
     cropped = crop_center(gray)
 else:
     col1, col2 = st.columns(2)
@@ -190,7 +188,7 @@ else:
         st.error(str(e))
         st.stop()
 
-st.caption(f"Dimensión final: {cropped.shape[1]}×{cropped.shape[0]} píxeles")
+st.caption(f"Recorte de {cropped.shape[1]}×{cropped.shape[0]} píxeles listo")
 
 # ---------------------------------------------------------------------------
 # Kernel size & Filter selection
@@ -245,17 +243,22 @@ if st.session_state.result is not None:
     st.markdown("---")
 
     # -------- Original image + digitalization + matrix (always shown) --------
-    st.subheader("🖼️ Imagen inicial y digitalización")
+    st.subheader("🖼️ Imagen original y recorte digitalizado")
     orig_col1, orig_col2 = st.columns(2)
     with orig_col1:
-        st.image(cropped, caption="Imagen Inicial (recorte)", clamp=True, use_container_width=True)
+        st.image(gray, caption="Imagen Original (completa)", clamp=True, use_container_width=True)
     with orig_col2:
+        st.image(cropped, caption=f"Recorte {cropped.shape[1]}×{cropped.shape[0]}", clamp=True, use_container_width=True)
+
+    st.markdown("---")
+    dig_col1, dig_col2 = st.columns(2)
+    with dig_col1:
         fig_orig_dig = show_digitalization_grid(cropped)
         st.pyplot(fig_orig_dig)
-        st.caption("Digitalización Inicial — matriz de píxeles")
-
-    st.markdown("**Matriz numérica inicial:**")
-    st.code(show_matrix_text(cropped, "Inicial"), language="text")
+        st.caption("Digitalización del recorte — matriz de píxeles")
+    with dig_col2:
+        st.markdown("**Matriz numérica del recorte:**")
+        st.code(show_matrix_text(cropped, "Recorte"), language="text")
 
     # -------- Per filter: exact PDF layout --------
     if is_edge:
