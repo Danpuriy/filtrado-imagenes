@@ -11,6 +11,7 @@ from filtrado.core import (
     median_filter,
     laplacian_filter,
     sobel_filter,
+    generar_imagen_prueba,
 )
 
 
@@ -215,3 +216,95 @@ class TestSobel:
         edge_col = raw[:, 8]
         flat_col_left = raw[:, 4]
         assert np.mean(edge_col) > np.mean(flat_col_left)
+
+
+# ---------------------------------------------------------------------------
+# Nuevas imágenes de prueba
+# ---------------------------------------------------------------------------
+
+class TestGenerarImagenPruebaNuevas:
+    def test_rayos_x_properties(self):
+        img1 = generar_imagen_prueba("rayos_x")
+        img2 = generar_imagen_prueba("rayos_x")
+        assert img1.shape == (200, 200)
+        assert img1.dtype == np.uint8
+        # Determinism
+        assert np.array_equal(img1, img2)
+        
+        # Rays X structure: soft gradient background (Tissue) ~30-80, bright circle ~180, salt-pepper noise
+        # Since we have noise (0 and 255), we can check values
+        # Let's check there's a circular/bright region of intensity ~180
+        assert np.any((img1 >= 170) & (img1 <= 190))
+        # Let's check there's tissue/background pixels in 30-80
+        assert np.any((img1 >= 30) & (img1 <= 80))
+        # Salt-and-pepper noise check (at least 1% should differ from neighbors or be 0/255)
+        # Let's just verify some pixels are 0 or 255
+        assert np.any(img1 == 0)
+        assert np.any(img1 == 255)
+
+    def test_documento_properties(self):
+        img1 = generar_imagen_prueba("documento")
+        img2 = generar_imagen_prueba("documento")
+        assert img1.shape == (200, 200)
+        assert img1.dtype == np.uint8
+        # Determinism
+        assert np.array_equal(img1, img2)
+        
+        # Light background ~220 +/- 10
+        # Dark rectangles ~0-30
+        # We assert most of the image is light, but some is very dark
+        light_pixels = np.sum((img1 >= 210) & (img1 <= 230))
+        dark_pixels = np.sum(img1 <= 30)
+        assert light_pixels > 15000  # most of 40000 pixels
+        assert dark_pixels > 500     # representing text
+
+    def test_inspeccion_properties(self):
+        img1 = generar_imagen_prueba("inspeccion")
+        img2 = generar_imagen_prueba("inspeccion")
+        assert img1.shape == (200, 200)
+        assert img1.dtype == np.uint8
+        # Determinism
+        assert np.array_equal(img1, img2)
+        
+        # Surface is ~128 +/- 2
+        # Dark diagonal line is ~30
+        flat_pixels = np.sum((img1 >= 126) & (img1 <= 130))
+        line_pixels = np.sum((img1 >= 20) & (img1 <= 40))
+        assert flat_pixels > 35000
+        assert line_pixels > 50
+
+    def test_satelital_properties(self):
+        img1 = generar_imagen_prueba("satelital")
+        img2 = generar_imagen_prueba("satelital")
+        assert img1.shape == (200, 200)
+        assert img1.dtype == np.uint8
+        # Determinism
+        assert np.array_equal(img1, img2)
+        
+        # 4 quadrants: base levels 40, 100, 160, 220 + gaussian noise
+        # Check mean of each quadrant is distinct
+        q1 = img1[0:100, 0:100]
+        q2 = img1[0:100, 100:200]
+        q3 = img1[100:200, 0:100]
+        q4 = img1[100:200, 100:200]
+        
+        means = [np.mean(q) for q in (q1, q2, q3, q4)]
+        # Sort means and verify they correspond to around 40, 100, 160, 220
+        means.sort()
+        assert abs(means[0] - 40) < 10
+        assert abs(means[1] - 100) < 10
+        assert abs(means[2] - 160) < 10
+        assert abs(means[3] - 220) < 10
+
+    def test_existing_types_unchanged(self):
+        # Existing types (gradiente, cuadros, circulos) shouldn't be altered
+        img_grad = generar_imagen_prueba("gradiente")
+        assert img_grad.shape == (200, 200)
+        # Check horizontal gradient properties
+        assert np.array_equal(img_grad[0], np.linspace(0, 255, 200, dtype=np.uint8))
+        
+        img_cuadros = generar_imagen_prueba("cuadros")
+        assert img_cuadros.shape == (200, 200)
+        assert img_cuadros[0, 0] == 255
+        assert img_cuadros[0, 25] == 0
+

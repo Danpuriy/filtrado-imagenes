@@ -24,6 +24,53 @@ def generar_imagen_prueba(tipo: str = "gradiente", size: int = 200) -> np.ndarra
         center = size // 2
         dist = np.sqrt((X - center)**2 + (Y - center)**2)
         return (np.sin(dist * 0.1) * 127 + 128).astype(np.uint8)
+    elif tipo == "rayos_x":
+        # Medical X-Ray simulation
+        Y, X = np.ogrid[:size, :size]
+        center = size // 2
+        dist = np.sqrt((X - center)**2 + (Y - center)**2)
+        # Gradient background 30-80
+        bg = np.tile(np.linspace(30, 80, size), (size, 1))
+        # Bright circle near center of intensity ~180
+        bg[dist < size // 4] = 180
+        # Salt-and-pepper noise at 2% probability (1% salt, 1% pepper)
+        rng = np.random.default_rng(42)
+        noise_mask = rng.random((size, size))
+        bg[noise_mask < 0.01] = 0
+        bg[(noise_mask >= 0.01) & (noise_mask < 0.02)] = 255
+        return bg.astype(np.uint8)
+    elif tipo == "documento":
+        # Document scan simulation
+        rng = np.random.default_rng(84)
+        bg = np.full((size, size), 220, dtype=np.uint8)
+        # Scattered dark rectangles representing text
+        for _ in range(30):
+            h_rect = rng.integers(3, 10)
+            w_rect = rng.integers(5, 20)
+            y = rng.integers(0, size - h_rect)
+            x = rng.integers(0, size - w_rect)
+            val = rng.integers(0, 31)
+            bg[y : y + h_rect, x : x + w_rect] = val
+        return bg
+    elif tipo == "inspeccion":
+        # Industrial crack inspection
+        bg = np.full((size, size), 128, dtype=np.uint8)
+        # Diagonal dark line simulating crack
+        cv2.line(bg, (20, 20), (180, 180), color=30, thickness=2)
+        return bg
+    elif tipo == "satelital":
+        # Satellite imagery simulation
+        bg = np.zeros((size, size), dtype=np.float64)
+        half = size // 2
+        bg[0:half, 0:half] = 40
+        bg[0:half, half:] = 100
+        bg[half:, 0:half] = 160
+        bg[half:, half:] = 220
+        # Additive gaussian noise
+        rng = np.random.default_rng(126)
+        noise = rng.normal(0, 5, (size, size))
+        bg += noise
+        return np.clip(bg, 0, 255).astype(np.uint8)
     else:
         # Imagen uniforme gris
         return np.full((size, size), 128, dtype=np.uint8)

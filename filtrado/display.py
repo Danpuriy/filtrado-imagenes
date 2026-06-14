@@ -1,5 +1,6 @@
 """Display utilities — matplotlib figures for image visualisation."""
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -119,3 +120,21 @@ def show_filter_comparison(
 
     fig.tight_layout()
     return fig
+
+
+def draw_crop_overlay(
+    img: np.ndarray,
+    x: int,
+    y: int,
+    size: int = 15,
+) -> np.ndarray:
+    """Return a COPY of *img* converted to BGR with a red rectangle overlay.
+
+    The original *img* is never modified (non-destructive).
+    """
+    # Convert grayscale to BGR
+    bgr = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    # Draw red rectangle on the copy
+    cv2.rectangle(bgr, (x, y), (x + size, y + size), color=(0, 0, 255), thickness=2)
+    return bgr
+

@@ -23,6 +23,7 @@ from filtrado.display import (
     show_digitalization_grid,
     show_filter_comparison,
     show_matrix_text,
+    draw_crop_overlay,
 )
 
 # ---------------------------------------------------------------------------
@@ -77,6 +78,10 @@ with col1:
         st.session_state.img_gray = generar_imagen_prueba("circulos")
         st.session_state.img_source = "prueba_circulos"
         st.rerun()
+    if st.button("🩻 Rayos X"):
+        st.session_state.img_gray = generar_imagen_prueba("rayos_x")
+        st.session_state.img_source = "prueba_rayos_x"
+        st.rerun()
 with col2:
     if st.button("🏁 Cuadros"):
         st.session_state.img_gray = generar_imagen_prueba("cuadros")
@@ -85,6 +90,23 @@ with col2:
     if st.button("⬜ Gris"):
         st.session_state.img_gray = generar_imagen_prueba("uniforme")
         st.session_state.img_source = "prueba_gris"
+        st.rerun()
+    if st.button("📄 Documento"):
+        st.session_state.img_gray = generar_imagen_prueba("documento")
+        st.session_state.img_source = "prueba_documento"
+        st.rerun()
+
+# Additional test images row
+col3, col4 = st.sidebar.columns(2)
+with col3:
+    if st.button("🔍 Inspección"):
+        st.session_state.img_gray = generar_imagen_prueba("inspeccion")
+        st.session_state.img_source = "prueba_inspeccion"
+        st.rerun()
+with col4:
+    if st.button("🛰️ Satelital"):
+        st.session_state.img_gray = generar_imagen_prueba("satelital")
+        st.session_state.img_source = "prueba_satelital"
         st.rerun()
 
 # ---------------------------------------------------------------------------
@@ -189,6 +211,25 @@ else:
         st.stop()
 
 st.caption(f"Recorte de {cropped.shape[1]}×{cropped.shape[0]} píxeles listo")
+
+# ---------------------------------------------------------------------------
+# Crop overlay — full image with red rectangle showing crop position
+# ---------------------------------------------------------------------------
+st.markdown("### 🖼️ Vista previa del recorte")
+
+# Compute crop coordinates for overlay (same formulas as crop functions)
+if crop_option == "Centro automático":
+    h, w = gray.shape[:2]
+    half = 15 // 2
+    cy, cx = (h - 1) // 2, (w - 1) // 2
+    crop_x = cx - half
+    crop_y = cy - half
+else:
+    crop_x = int(x)
+    crop_y = int(y)
+
+overlay_bgr = draw_crop_overlay(gray, crop_x, crop_y)
+st.image(overlay_bgr, caption="Imagen completa con recorte (rectángulo rojo = zona 15×15)", use_container_width=True)
 
 # ---------------------------------------------------------------------------
 # Kernel size & Filter selection
