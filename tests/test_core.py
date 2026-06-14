@@ -115,6 +115,59 @@ class TestCrop:
         cropped = crop_manual(sample_bw, x=w - 15, y=h - 15, size=15)
         assert cropped.shape == (15, 15)
 
+    # --- New tests for configurable crop size ---
+
+    def test_manual_crop_oversized_raises_valueerror(self):
+        """crop_manual MUST raise ValueError when size > min(h, w)."""
+        img = np.zeros((80, 100), dtype=np.uint8)  # h=80, w=100, min=80
+        with pytest.raises(ValueError, match="crop size.*exceeds.*min dimension|exceeds image.*min dimension"):
+            crop_manual(img, x=0, y=0, size=90)  # size=90 > min_dim=80
+
+    def test_manual_crop_oversized_raises_at_boundary(self):
+        """crop_manual MUST raise ValueError when size == min(h, w) + 1."""
+        img = np.zeros((80, 100), dtype=np.uint8)  # h=80, w=100, min=80
+        with pytest.raises(ValueError, match="crop size.*exceeds.*min dimension|exceeds image.*min dimension"):
+            crop_manual(img, x=0, y=0, size=81)  # size=81 > min_dim=80
+
+    def test_manual_crop_valid_at_max_boundary(self):
+        """crop_manual MUST accept size == min(h, w)."""
+        img = np.zeros((80, 100), dtype=np.uint8)  # h=80, w=100, min=80
+        # This should NOT raise
+        cropped = crop_manual(img, x=0, y=0, size=80)
+        assert cropped.shape == (80, 80)
+
+    def test_center_crop_various_sizes(self):
+        """crop_center MUST work correctly for various odd sizes (3, 15, 31)."""
+        img = np.zeros((100, 100), dtype=np.uint8)
+        # Center of 100x100 is at (49, 49) using (dim-1)//2
+        # For size=31: half=15, start=49-15=34, end=34+31=65
+        # Mark the region for size=31 (largest test size)
+        img[34:65, 34:65] = 255  # 31x31 region at center
+        
+        for size in (3, 15, 31):
+            cropped = crop_center(img, size=size)
+            assert cropped.shape == (size, size)
+            # All pixels should be 255 since we marked the center
+            assert np.all(cropped == 255)
+
+    def test_manual_crop_various_sizes(self):
+        """crop_manual MUST work correctly for various odd sizes (3, 15, 31)."""
+        img = np.zeros((100, 100), dtype=np.uint8)
+        # Mark a region at (10, 20) for size=31
+        img[20:51, 10:41] = 255  # 31x31 region at (10, 20)
+        
+        for size in (3, 15, 31):
+            cropped = crop_manual(img, x=10, y=20, size=size)
+            assert cropped.shape == (size, size)
+            # All pixels should be 255
+            assert np.all(cropped == 255)
+
+    def test_largest_odd_computation(self):
+        """Helper to compute largest odd <= n, clamped to minimum 3."""
+        # This is a pure function test - we'll extract the logic to core.py
+        # For now, test the expected behavior
+        pass  # Will be implemented when we add the helper function
+
 
 # ---------------------------------------------------------------------------
 # Mean & Median filters

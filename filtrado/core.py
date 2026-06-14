@@ -142,9 +142,15 @@ def crop_manual(
     Raises
     ------
     ValueError
-        If the requested region extends beyond the image boundaries.
+        If the requested region extends beyond the image boundaries,
+        or if size exceeds the minimum image dimension.
     """
     h, w = img.shape[:2]
+    min_dim = min(h, w)
+    if size > min_dim:
+        raise ValueError(
+            f"crop size {size} exceeds image min dimension {min_dim}"
+        )
     if x + size > w or y + size > h:
         raise ValueError(
             f"Crop region ({size}×{size}) at ({x},{y}) exceeds image "

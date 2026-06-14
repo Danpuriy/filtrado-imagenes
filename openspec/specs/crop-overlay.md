@@ -2,65 +2,71 @@
 
 ## Purpose
 
-Show the full grayscale image with a red rectangle overlay marking where the 15×15 crop is taken. The overlay must appear before filter application and update reactively when crop mode or coordinates change.
+Show the full grayscale image with a red rectangle overlay marking where the crop is taken. The overlay must appear before filter application and update reactively when crop mode, coordinates, or crop size change.
 
-## Requirements
+## ADDED Requirements
 
-### Requirement: Full-image display before filter
+### Requirement: Dynamic rectangle size from crop size parameter
 
-The system MUST render the full grayscale image using `st.image()` immediately after image decode, positioned between the crop selection widgets and the filter controls. The full image MUST be visible regardless of whether a filter has been applied.
+The system MUST use the dynamic `crop_size` parameter (not hardcoded 15) when drawing the rectangle. The rectangle MUST be drawn from (x, y) to (x + crop_size, y + crop_size) using `cv2.rectangle(img, (x, y), (x + crop_size, y + crop_size), color=(0,0,255), thickness=2)`.
 
-#### Scenario: Full image shown on image load
+#### Scenario: Overlay rectangle matches selected crop size
 
-- GIVEN a user has uploaded a JPG or selected a test image
-- WHEN the image is decoded and validated
-- THEN the full grayscale image is displayed above the crop selection widgets
-- AND the image is visible before any filter button is clicked
+- GIVEN crop_size=21, mode="Centro automático"
+- WHEN the full image is displayed
+- THEN the red rectangle dimensions are exactly 21×21 pixels
+
+#### Scenario: Overlay rectangle updates when crop size changes
+
+- GIVEN crop_size=15, overlay shows 15×15 rectangle
+- WHEN user changes crop_size to 31
+- THEN the overlay rectangle updates to 31×31 pixels on next rerun
+
+## MODIFIED Requirements
 
 ### Requirement: Reactive red rectangle overlay
 
-The system MUST convert the grayscale image to BGR with `cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)` and draw a red rectangle at the current crop coordinates using `cv2.rectangle(img, (x, y), (x+15, y+15), color=(0,0,255), thickness=2)`. The overlay MUST recompute on every Streamlit rerun from live widget values.
+The system MUST convert the grayscale image to BGR with `cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)` and draw a red rectangle at the current crop coordinates using `cv2.rectangle(img, (x, y), (x + crop_size, y + crop_size), color=(0,0,255), thickness=2)`. The overlay MUST recompute on every Streamlit rerun from live widget values including crop_size.
+(Previously: rectangle used hardcoded 15×15 dimensions)
 
 #### Scenario: Center mode overlay
 
 - GIVEN crop mode is set to "Centro automático"
 - WHEN the full image is displayed
-- THEN a red rectangle is drawn at the center crop coordinates computed by `crop_center()`
-- AND the rectangle dimensions are exactly 15×15 pixels
+- THEN a red rectangle is drawn at the center crop coordinates computed by `crop_center()` with the current `crop_size`
+- AND the rectangle dimensions are exactly crop_size×crop_size pixels
 
 #### Scenario: Manual mode overlay updates reactively
 
 - GIVEN crop mode is set to "Manual (ingresar coordenadas)"
 - WHEN the user changes the X or Y coordinate widgets
 - THEN the red rectangle overlay moves to match the new (x, y) coordinates
-- AND the rectangle dimensions remain exactly 15×15 pixels
+- AND the rectangle dimensions remain exactly crop_size×crop_size pixels
 
 #### Scenario: Overlay updates on mode switch
 
 - GIVEN the full image with overlay is displayed in "Centro automático" mode
 - WHEN the user switches to "Manual (ingresar coordenadas)"
 - THEN the overlay redraws at the manual coordinate position (default x=0, y=0)
+- AND the rectangle dimensions match the current crop_size
+
+#### Scenario: Overlay updates on crop size change
+
+- GIVEN the full image with overlay is displayed at crop_size=15
+- WHEN the user changes the crop size slider to 21
+- THEN the overlay redraws with 21×21 rectangle at the same (x, y) coordinates
 
 ### Requirement: Non-destructive overlay
 
 The overlay MUST NOT modify the image data stored in `st.session_state.img_gray` or the `cropped` array used for filtering. The rectangle is drawn on a COPY of the BGR-converted image solely for display.
+(Previously: referenced 15×15 crop; now references dynamically sized crop)
 
 #### Scenario: Filter operates on unmodified crop
 
 - GIVEN the full image is displayed with a red rectangle overlay
 - WHEN the user clicks "Aplicar filtro"
-- THEN the filter operates on the original 15×15 crop (not the overlaid image)
+- THEN the filter operates on the original crop_size×crop_size crop (not the overlaid image)
 - AND the result matches the expected filter output for that crop region
-
-### Requirement: UI placement
-
-The full image with overlay MUST be positioned in the UI flow between the crop selection widgets and the filter controls, outside the results block.
-
-#### Scenario: Layout order
-
-- GIVEN an image is loaded
-- WHEN the page renders
-- THEN the element order is: image info → crop selection → full image with overlay → filter controls → apply button → results
 
 ## Validation Criteria
 
@@ -68,5 +74,7 @@ The full image with overlay MUST be positioned in the UI flow between the crop s
 - [ ] Rectangle position matches center crop coordinates in auto mode
 - [ ] Rectangle follows manual X/Y coordinate changes
 - [ ] Rectangle updates on mode switch without page reload
+- [ ] Rectangle dimensions match selected crop_size (not hardcoded 15)
+- [ ] Rectangle updates reactively when crop_size slider changes
 - [ ] Filter output is identical with and without overlay active
 - [ ] All existing 30+ tests continue to pass

@@ -52,3 +52,36 @@ def test_draw_crop_overlay_different_coords():
     # Far away pixel is converted to BGR correctly (value remains 100)
     assert np.array_equal(output[0, 0], [100, 100, 100])
 
+
+def test_draw_crop_overlay_dynamic_size():
+    """Verify draw_crop_overlay uses dynamic size parameter (not hardcoded 15)."""
+    img = np.ones((100, 100), dtype=np.uint8) * 100
+    
+    # Test with size=21 (different from default 15)
+    x, y, size = 10, 15, 21
+    output = draw_crop_overlay(img, x, y, size=size)
+    
+    assert output.shape == (100, 100, 3)
+    # Check corners of the rectangle at the dynamic size
+    assert np.array_equal(output[y, x], [0, 0, 255])
+    assert np.array_equal(output[y + size, x + size], [0, 0, 255])
+    assert np.array_equal(output[y, x + size], [0, 0, 255])
+    assert np.array_equal(output[y + size, x], [0, 0, 255])
+    
+    # Verify the rectangle is exactly size x size
+    # With thickness=2, check a point well inside the rectangle (should be grayscale, not red)
+    # Interior starts at y+2, x+2 due to border thickness
+    assert not np.array_equal(output[y + 2, x + 2], [0, 0, 255])
+    # Verify interior has the correct grayscale value converted to BGR
+    assert np.array_equal(output[y + 2, x + 2], [100, 100, 100])
+
+def test_draw_crop_overlay_size_3():
+    """Verify draw_crop_overlay works with minimum size=3."""
+    img = np.ones((20, 20), dtype=np.uint8) * 50
+    x, y, size = 2, 2, 3
+    output = draw_crop_overlay(img, x, y, size=size)
+    
+    assert output.shape == (20, 20, 3)
+    assert np.array_equal(output[y, x], [0, 0, 255])
+    assert np.array_equal(output[y + size, x + size], [0, 0, 255])
+

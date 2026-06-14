@@ -49,6 +49,7 @@ st.sidebar.markdown("### 🎛️ Controles")
 # Title
 # ---------------------------------------------------------------------------
 st.title("🎨 Filtrado de Imágenes")
+st.markdown("**MA475 • UPC • 2026-S6**")
 st.markdown(
     "Cargue una imagen **JPG en blanco y negro** o use una imagen de prueba "
     "para aplicar filtros de procesamiento digital."
@@ -184,9 +185,27 @@ with st.expander("📋 Información de la imagen", expanded=False):
         st.metric("Valor medio", f"{gray.mean():.1f}")
 
 # ---------------------------------------------------------------------------
-# Crop selection — must be 15×15 per project spec
+# Crop size slider (configurable odd size 3..max_odd)
 # ---------------------------------------------------------------------------
-st.markdown("### ✂️ Recorte 15×15")
+h, w = gray.shape[:2]
+min_dim = min(h, w)
+max_odd = min_dim if min_dim % 2 == 1 else min_dim - 1
+max_odd = max(3, max_odd)  # clamp to minimum 3
+
+crop_size = st.sidebar.slider(
+    "Tamaño de recorte",
+    min_value=3,
+    max_value=max_odd,
+    value=min(15, max_odd),
+    step=2,
+    help="Tamaño del recorte cuadrado (solo impares). "
+         "El máximo es el impar más grande ≤ min(alto, ancho).",
+)
+
+# ---------------------------------------------------------------------------
+# Crop selection
+# ---------------------------------------------------------------------------
+st.markdown(f"### ✂️ Recorte {crop_size}×{crop_size}")
 
 crop_option = st.radio(
     "Seleccione modo de recorte:",
@@ -195,17 +214,17 @@ crop_option = st.radio(
 )
 
 if crop_option == "Centro automático":
-    cropped = crop_center(gray)
+    cropped = crop_center(gray, size=crop_size)
 else:
     col1, col2 = st.columns(2)
-    max_x = max(0, gray.shape[1] - 15)
-    max_y = max(0, gray.shape[0] - 15)
+    max_x = max(0, w - crop_size)
+    max_y = max(0, h - crop_size)
     with col1:
         x = st.number_input("X (columna)", min_value=0, max_value=max_x, value=0)
     with col2:
         y = st.number_input("Y (fila)", min_value=0, max_value=max_y, value=0)
     try:
-        cropped = crop_manual(gray, int(x), int(y))
+        cropped = crop_manual(gray, int(x), int(y), size=crop_size)
     except ValueError as e:
         st.error(str(e))
         st.stop()
@@ -219,17 +238,16 @@ st.markdown("### 🖼️ Vista previa del recorte")
 
 # Compute crop coordinates for overlay (same formulas as crop functions)
 if crop_option == "Centro automático":
-    h, w = gray.shape[:2]
-    half = 15 // 2
     cy, cx = (h - 1) // 2, (w - 1) // 2
+    half = crop_size // 2
     crop_x = cx - half
     crop_y = cy - half
 else:
     crop_x = int(x)
     crop_y = int(y)
 
-overlay_bgr = draw_crop_overlay(gray, crop_x, crop_y)
-st.image(overlay_bgr, caption="Imagen completa con recorte (rectángulo rojo = zona 15×15)", use_container_width=True)
+overlay_bgr = draw_crop_overlay(gray, crop_x, crop_y, size=crop_size)
+st.image(overlay_bgr, caption=f"Imagen completa con recorte (rectángulo rojo = zona {crop_size}×{crop_size})", use_container_width=True)
 
 # ---------------------------------------------------------------------------
 # Kernel size & Filter selection
@@ -376,3 +394,21 @@ if st.session_state.result is not None:
         file_name=f"{img_source}_filtrado_{filter_name.lower()}.png",
         mime="image/png",
     )
+
+# ---------------------------------------------------------------------------
+# Sidebar branding: footer caption + credits expander
+# ---------------------------------------------------------------------------
+st.sidebar.markdown("---")
+st.sidebar.caption("MA475 • UPC • 2026-S6")
+
+with st.sidebar.expander("ℹ️ Créditos del proyecto", expanded=False):
+    st.markdown("**Curso:** MA475 - Matemática Computacional")
+    st.markdown("**Institución:** UPC - Universidad Peruana de Ciencias Aplicadas")
+    st.markdown("**Integrantes:**")
+    st.markdown("- Chavez Giraldo, Andrei Gabriel")
+    st.markdown("- Romero Veliz, Matthias Alonso")
+    st.markdown("- Escalante Rojas, Rogger Junior")
+    st.markdown("- Zea Diaz, Jesús Enrique")
+    st.markdown("- Rodriguez Espinoza, Daniel Kevin")
+    st.markdown("**Profesor:** Jesús Manuel Acosta Neyra")
+    st.markdown("**Período:** 2026 (Semana 6 / primera revisión)")
