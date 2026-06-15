@@ -190,12 +190,14 @@ class TestAppContent:
         source = read_app()
         assert "Limpiar" in source, "Clear button not found"
 
-    def test_crop_size_constant_defined(self):
-        """app.py MUST define CROP_SIZE constant (replaced the slider)."""
+    def test_crop_size_tracking_key_in_init(self):
+        """app.py MUST initialize _crop_size_at_result in session state."""
         source = read_app()
-        assert "CROP_SIZE" in source, "CROP_SIZE constant not found"
-        assert "CROP_SIZE = 15" in source, (
-            "CROP_SIZE should default to 15 (removed slider for stability)"
+        start = source.index("for key in")
+        end = source.index("\n\n", start)
+        init_section = source[start:end]
+        assert "_crop_size_at_result" in init_section, (
+            "_crop_size_at_result must be in session state init loop"
         )
 
     def test_kernel_slider_present(self):
