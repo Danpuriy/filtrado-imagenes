@@ -22,6 +22,7 @@ from filtrado.core import (
 )
 from filtrado.display import (
     show_digitalization_grid,
+    show_histogram,
     show_matrix_text,
     draw_crop_overlay,
 )
@@ -34,7 +35,7 @@ st.set_page_config(layout="wide", page_title="Filtrado de Imágenes")
 # ---------------------------------------------------------------------------
 # S2: Session state init — 6 keys, all → None
 # ---------------------------------------------------------------------------
-for key in (    "img_gray", "img_source", "result", "raw", "filter_applied"):
+for key in ("img_gray", "img_source", "result", "raw", "filter_applied", "result_full", "raw_full"):
     if key not in st.session_state:
         st.session_state[key] = None
 
@@ -108,7 +109,7 @@ uploaded = st.sidebar.file_uploader(
 
 # --- Clear button (resets all 5 keys) ---
 if st.sidebar.button("🔄 Limpiar imagen", type="secondary"):
-    for key in ("img_gray", "img_source", "result", "raw", "filter_applied"):
+    for key in ("img_gray", "img_source", "result", "raw", "filter_applied", "result_full", "raw_full"):
         st.session_state[key] = None
     st.rerun()
 
@@ -291,17 +292,25 @@ is_edge = filter_option in ("Laplaciano", "Sobel")
 if st.button("🚀 Aplicar filtro", type="primary"):
     if filter_option == "Media":
         result_img = mean_filter(cropped, kernel_size=kernel_size)
+        result_full_img = mean_filter(gray, kernel_size=kernel_size)
         raw_img = None
+        raw_full_img = None
     elif filter_option == "Mediana":
         result_img = median_filter(cropped, kernel_size=kernel_size)
+        result_full_img = median_filter(gray, kernel_size=kernel_size)
         raw_img = None
+        raw_full_img = None
     elif filter_option == "Laplaciano":
         raw_img, result_img = laplacian_filter(cropped, kernel_size=kernel_size)
+        raw_full_img, result_full_img = laplacian_filter(gray, kernel_size=kernel_size)
     else:
         raw_img, result_img = sobel_filter(cropped, kernel_size=kernel_size)
+        raw_full_img, result_full_img = sobel_filter(gray, kernel_size=kernel_size)
 
     st.session_state.result = result_img
     st.session_state.raw = raw_img
+    st.session_state.result_full = result_full_img
+    st.session_state.raw_full = raw_full_img
     st.session_state.filter_applied = filter_option
     st.rerun()
 
@@ -310,102 +319,145 @@ if st.session_state.result is not None:
     is_edge = st.session_state.filter_applied in ("Laplaciano", "Sobel")
     result_img = st.session_state.result
     raw_img = st.session_state.raw
+    result_full_img = st.session_state.result_full
+    raw_full_img = st.session_state.raw_full
     filter_name = st.session_state.filter_applied
 
     st.markdown("---")
 
-    # -------- Original image + digitalization + matrix (always) --------
-    st.subheader("🖼️ Imagen original y recorte digitalizado")
-    orig_col1, orig_col2 = st.columns(2)
-    with orig_col1:
-        st.image(gray, caption="Imagen Original (completa)", clamp=True, width="stretch")
-    with orig_col2:
-        st.image(cropped, caption=f"Recorte {cropped.shape[1]}×{cropped.shape[0]}", clamp=True, width="stretch")
+    tab_full, tab_crop = st.tabs(["🔲 Imagen completa", "✂️ Recorte 15×15"])
 
-    st.markdown("---")
-    dig_col1, dig_col2 = st.columns(2)
-    with dig_col1:
-        fig_orig_dig = show_digitalization_grid(cropped)
-        st.pyplot(fig_orig_dig)
-        st.caption("Digitalización del recorte — matriz de píxeles")
-    with dig_col2:
-        st.markdown("**Matriz numérica del recorte:**")
-        st.code(show_matrix_text(cropped, "Recorte"), language="text")
+    # ============================================================
+    # TAB 1 — Full image result
+    # ============================================================
+    with tab_full:
+        st.subheader(f"📊 Filtro {filter_name} — imagen completa")
 
-    # -------- Per filter: exact PDF layout --------
-    if is_edge:
-        # Laplaciano / Sobel — Figura 4 del PDF: 2×3 grid
-        st.subheader(f"📊 Filtro {filter_name} — matriz resultante y re-escalado")
-        edge_col1, edge_col2, edge_col3 = st.columns(3)
-        with edge_col1:
-            fig_dig = show_digitalization_grid(cropped)
-            st.pyplot(fig_dig)
-            st.caption("Digitalización Inicial")
-        with edge_col2:
-            fig_raw = show_digitalization_grid(raw_img)
-            st.pyplot(fig_raw)
-            st.caption("Matriz Resultante del Filtrado")
-        with edge_col3:
-            fig_norm = show_digitalization_grid(result_img)
-            st.pyplot(fig_norm)
-            st.caption("Matriz Re-escalada (0–255)")
+        if is_edge:
+            efc1, efc2 = st.columns(2)
+            with efc1:
+                st.image(raw_full_img, caption="Matriz Resultante (sin re-escalar)", clamp=True, width="stretch")
+            with efc2:
+                st.image(result_full_img, caption=f"Imagen Re-escalada (0–255) — {filter_name}", clamp=True, width="stretch")
+        else:
+            st.image(result_full_img, caption=f"Imagen Resultante — {filter_name}", clamp=True, width="stretch")
 
-        # Second row: text matrices + result image
-        edge2_col1, edge2_col2, edge2_col3 = st.columns(3)
-        with edge2_col1:
-            st.markdown("**Matriz numérica inicial:**")
-            st.code(show_matrix_text(cropped, "Inicial"), language="text")
-        with edge2_col2:
-            st.markdown("**Matriz numérica resultante (re-escalada):**")
-            st.code(show_matrix_text(result_img, f"Re-escalada — {filter_name}"), language="text")
-        with edge2_col3:
-            st.image(result_img, caption=f"Imagen Resultante — {filter_name}", clamp=True, width="stretch")
+        st.markdown("**Métricas de la imagen resultante:**")
+        mcol1, mcol2, mcol3, mcol4 = st.columns(4)
+        with mcol1:
+            st.metric("Valor mínimo", int(result_full_img.min()))
+        with mcol2:
+            st.metric("Valor máximo", int(result_full_img.max()))
+        with mcol3:
+            st.metric("Valor medio", f"{result_full_img.mean():.1f}")
+        with mcol4:
+            st.metric("Rango dinámico", f"[{int(result_full_img.min())}, {int(result_full_img.max())}]")
 
-        # Third row: result digitalization
+        st.markdown("**📈 Comparación de histogramas (original vs filtrada):**")
+        hcol1, hcol2 = st.columns(2)
+        with hcol1:
+            fig_orig_hist = show_histogram(gray, "Histograma — Original")
+            st.pyplot(fig_orig_hist)
+        with hcol2:
+            fig_res_hist = show_histogram(result_full_img, f"Histograma — {filter_name}")
+            st.pyplot(fig_res_hist)
+
+    # ============================================================
+    # TAB 2 — Crop result (existing detailed view)
+    # ============================================================
+    with tab_crop:
+        # -------- Original image + digitalization + matrix (always) --------
+        st.subheader("🖼️ Imagen original y recorte digitalizado")
+        orig_col1, orig_col2 = st.columns(2)
+        with orig_col1:
+            st.image(gray, caption="Imagen Original (completa)", clamp=True, width="stretch")
+        with orig_col2:
+            st.image(cropped, caption=f"Recorte {cropped.shape[1]}×{cropped.shape[0]}", clamp=True, width="stretch")
+
         st.markdown("---")
-        st.subheader("📈 Digitalización Resultante")
-        res_dig_col1, res_dig_col2 = st.columns(2)
-        with res_dig_col1:
-            fig_res_dig = show_digitalization_grid(result_img)
-            st.pyplot(fig_res_dig)
-            st.caption("Digitalización Resultante")
-        with res_dig_col2:
-            st.markdown("**Matriz numérica resultante:**")
-            st.code(show_matrix_text(result_img, f"Resultante — {filter_name}"), language="text")
+        dig_col1, dig_col2 = st.columns(2)
+        with dig_col1:
+            fig_orig_dig = show_digitalization_grid(cropped)
+            st.pyplot(fig_orig_dig)
+            st.caption("Digitalización del recorte — matriz de píxeles")
+        with dig_col2:
+            st.markdown("**Matriz numérica del recorte:**")
+            st.code(show_matrix_text(cropped, "Recorte"), language="text")
 
-    else:
-        # Media / Mediana — Figura 3 del PDF: 2×2 grid + comparación
-        st.subheader(f"📊 Filtro {filter_name} — imagen resultante")
-        sm_col1, sm_col2 = st.columns(2)
-        with sm_col1:
-            st.image(result_img, caption=f"Imagen Resultante — {filter_name}", clamp=True, width="stretch")
-        with sm_col2:
-            fig_res_dig = show_digitalization_grid(result_img)
-            st.pyplot(fig_res_dig)
-            st.caption("Digitalización Resultante")
+        # -------- Per filter: exact PDF layout --------
+        if is_edge:
+            # Laplaciano / Sobel — Figura 4 del PDF: 2×3 grid
+            st.subheader(f"📊 Filtro {filter_name} — matriz resultante y re-escalado")
+            edge_col1, edge_col2, edge_col3 = st.columns(3)
+            with edge_col1:
+                fig_dig = show_digitalization_grid(cropped)
+                st.pyplot(fig_dig)
+                st.caption("Digitalización Inicial")
+            with edge_col2:
+                fig_raw = show_digitalization_grid(raw_img)
+                st.pyplot(fig_raw)
+                st.caption("Matriz Resultante del Filtrado")
+            with edge_col3:
+                fig_norm = show_digitalization_grid(result_img)
+                st.pyplot(fig_norm)
+                st.caption("Matriz Re-escalada (0–255)")
 
-        # Matrices textuales: inicial vs resultante
-        st.markdown("---")
-        st.subheader("📄 Matrices numéricas")
-        mat_col1, mat_col2 = st.columns(2)
-        with mat_col1:
-            st.markdown("**Matriz numérica inicial:**")
-            st.code(show_matrix_text(cropped, "Inicial"), language="text")
-        with mat_col2:
-            st.markdown("**Matriz numérica resultante:**")
-            st.code(show_matrix_text(result_img, f"Resultante — {filter_name}"), language="text")
+            # Second row: text matrices + result image
+            edge2_col1, edge2_col2, edge2_col3 = st.columns(3)
+            with edge2_col1:
+                st.markdown("**Matriz numérica inicial:**")
+                st.code(show_matrix_text(cropped, "Inicial"), language="text")
+            with edge2_col2:
+                st.markdown("**Matriz numérica resultante (re-escalada):**")
+                st.code(show_matrix_text(result_img, f"Re-escalada — {filter_name}"), language="text")
+            with edge2_col3:
+                st.image(result_img, caption=f"Imagen Resultante — {filter_name}", clamp=True, width="stretch")
 
-        # Comparación visual: 2×2 grid (Imagen + Digitalización)
-        st.markdown("---")
-        st.subheader("📈 Comparación visual — Inicial vs Resultante")
-        comp_col1, comp_col2 = st.columns(2)
-        with comp_col1:
-            st.image(cropped, caption="Imagen Inicial", clamp=True, width="stretch")
-            fig_comp_init = show_digitalization_grid(cropped)
-            st.pyplot(fig_comp_init)
-            st.caption("Digitalización Inicial")
-        with comp_col2:
-            st.image(result_img, caption=f"Imagen Resultante — {filter_name}", clamp=True, width="stretch")
-            fig_comp_res = show_digitalization_grid(result_img)
-            st.pyplot(fig_comp_res)
-            st.caption("Digitalización Resultante")
+            # Third row: result digitalization
+            st.markdown("---")
+            st.subheader("📈 Digitalización Resultante")
+            res_dig_col1, res_dig_col2 = st.columns(2)
+            with res_dig_col1:
+                fig_res_dig = show_digitalization_grid(result_img)
+                st.pyplot(fig_res_dig)
+                st.caption("Digitalización Resultante")
+            with res_dig_col2:
+                st.markdown("**Matriz numérica resultante:**")
+                st.code(show_matrix_text(result_img, f"Resultante — {filter_name}"), language="text")
+
+        else:
+            # Media / Mediana — Figura 3 del PDF: 2×2 grid + comparación
+            st.subheader(f"📊 Filtro {filter_name} — imagen resultante")
+            sm_col1, sm_col2 = st.columns(2)
+            with sm_col1:
+                st.image(result_img, caption=f"Imagen Resultante — {filter_name}", clamp=True, width="stretch")
+            with sm_col2:
+                fig_res_dig = show_digitalization_grid(result_img)
+                st.pyplot(fig_res_dig)
+                st.caption("Digitalización Resultante")
+
+            # Matrices textuales: inicial vs resultante
+            st.markdown("---")
+            st.subheader("📄 Matrices numéricas")
+            mat_col1, mat_col2 = st.columns(2)
+            with mat_col1:
+                st.markdown("**Matriz numérica inicial:**")
+                st.code(show_matrix_text(cropped, "Inicial"), language="text")
+            with mat_col2:
+                st.markdown("**Matriz numérica resultante:**")
+                st.code(show_matrix_text(result_img, f"Resultante — {filter_name}"), language="text")
+
+            # Comparación visual: 2×2 grid (Imagen + Digitalización)
+            st.markdown("---")
+            st.subheader("📈 Comparación visual — Inicial vs Resultante")
+            comp_col1, comp_col2 = st.columns(2)
+            with comp_col1:
+                st.image(cropped, caption="Imagen Inicial", clamp=True, width="stretch")
+                fig_comp_init = show_digitalization_grid(cropped)
+                st.pyplot(fig_comp_init)
+                st.caption("Digitalización Inicial")
+            with comp_col2:
+                st.image(result_img, caption=f"Imagen Resultante — {filter_name}", clamp=True, width="stretch")
+                fig_comp_res = show_digitalization_grid(result_img)
+                st.pyplot(fig_comp_res)
+                st.caption("Digitalización Resultante")
