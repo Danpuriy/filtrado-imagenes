@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "filtrado"
+version = "0.1.0"
+description = "Image filtering pipeline for MA475"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "opencv-python-headless>=4.8.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+    "streamlit>=1.28.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["filtrado*"]
