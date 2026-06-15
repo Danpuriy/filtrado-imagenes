@@ -132,6 +132,15 @@ crop_size = st.sidebar.slider(
          "El máximo es el impar más grande ≤ min(alto, ancho).",
 )
 
+# Clear stale result when crop size changes (prevents size mismatch)
+if st.session_state.result is not None:
+    stored = getattr(st.session_state, "_crop_size_at_result", None)
+    if stored is not None and stored != crop_size:
+        st.session_state.result = None
+        st.session_state.raw = None
+        st.session_state.filter_applied = None
+        st.rerun()
+
 # --- Download button (conditional on result) ---
 if st.session_state.result is not None:
     _, result_bytes = cv2.imencode(".png", st.session_state.result)
@@ -323,6 +332,7 @@ if st.button("🚀 Aplicar filtro", type="primary"):
     st.session_state.result = result_img
     st.session_state.raw = raw_img
     st.session_state.filter_applied = filter_option
+    st.session_state._crop_size_at_result = crop_size
     st.rerun()
 
 # --- Results display (SINGLE block, from session_state) ---
