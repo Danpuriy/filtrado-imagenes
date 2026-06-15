@@ -145,14 +145,6 @@ class TestAppOrdering:
         credits_pos = source.find("Créditos del proyecto")
         assert credits_pos >= 0, "Credits expander not found"
 
-        # Find last slider (crop size) and last button — branding should be after them
-        aplicar_pos = source.rfind("Aplicar filtro")
-        assert aplicar_pos >= 0, "Aplicar filtro not found"
-
-        # Branding (download + credits) should be after controls
-        # Actually in the design, download is in sidebar before branding
-        # and branding is the last thing
-
     def test_download_in_sidebar_section(self):
         """Download button MUST be in the sidebar section (st.sidebar.download_button)."""
         source = read_app()
@@ -198,10 +190,13 @@ class TestAppContent:
         source = read_app()
         assert "Limpiar" in source, "Clear button not found"
 
-    def test_crop_size_slider_present(self):
-        """'Tamaño de recorte' slider MUST exist."""
+    def test_crop_size_constant_defined(self):
+        """app.py MUST define CROP_SIZE constant (replaced the slider)."""
         source = read_app()
-        assert "Tamaño de recorte" in source, "Crop size slider not found"
+        assert "CROP_SIZE" in source, "CROP_SIZE constant not found"
+        assert "CROP_SIZE = 15" in source, (
+            "CROP_SIZE should default to 15 (removed slider for stability)"
+        )
 
     def test_kernel_slider_present(self):
         """'Tamaño del kernel' slider MUST exist."""

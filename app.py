@@ -38,16 +38,7 @@ for key in ("img_gray", "img_source", "result", "raw", "filter_applied"):
     if key not in st.session_state:
         st.session_state[key] = None
 
-# Pre-compute max_odd from session_state for the sidebar crop-size slider.
-# On cold start the guard (S6) stops before the slider; on warm reruns the
-# image is already in session_state so we get the real dimensions.
-if st.session_state.img_gray is not None:
-    _h, _w = st.session_state.img_gray.shape[:2]
-    _min_dim = min(_h, _w)
-    _max_odd = _min_dim if _min_dim % 2 == 1 else _min_dim - 1
-    _max_odd = max(3, _max_odd)
-else:
-    _max_odd = 15  # placeholder — cold start guard stops before slider use
+CROP_SIZE = 15  # fixed crop size (was a slider, removed for stability)
 
 # ---------------------------------------------------------------------------
 # S3: SIDEBAR — contiguous block (all st.sidebar calls in one place)
@@ -120,26 +111,6 @@ if st.sidebar.button("🔄 Limpiar imagen", type="secondary"):
     for key in ("img_gray", "img_source", "result", "raw", "filter_applied"):
         st.session_state[key] = None
     st.rerun()
-
-# --- Crop size slider (uses max_odd computed from session_state above) ---
-crop_size = st.sidebar.slider(
-    "Tamaño de recorte",
-    min_value=3,
-    max_value=_max_odd,
-    value=min(15, _max_odd),
-    step=2,
-    help="Tamaño del recorte cuadrado (solo impares). "
-         "El máximo es el impar más grande ≤ min(alto, ancho).",
-)
-
-# Clear stale result when crop size changes (prevents size mismatch)
-if st.session_state.result is not None:
-    stored = getattr(st.session_state, "_crop_size_at_result", None)
-    if stored is not None and stored != crop_size:
-        st.session_state.result = None
-        st.session_state.raw = None
-        st.session_state.filter_applied = None
-        st.session_state._crop_size_at_result = None
 
 # --- Download button (conditional on result) ---
 if st.session_state.result is not None:
@@ -247,7 +218,7 @@ with st.expander("📋 Información de la imagen", expanded=False):
 # ---------------------------------------------------------------------------
 # S8: Crop selection + overlay preview — BEFORE filter results
 # ---------------------------------------------------------------------------
-st.markdown(f"### ✂️ Recorte {crop_size}×{crop_size}")
+st.markdown(f"### ✂️ Recorte {CROP_SIZE}×{CROP_SIZE}")
 
 crop_option = st.radio(
     "Seleccione modo de recorte:",
@@ -256,17 +227,17 @@ crop_option = st.radio(
 )
 
 if crop_option == "Centro automático":
-    cropped = crop_center(gray, size=crop_size)
+    cropped = crop_center(gray, size=CROP_SIZE)
 else:
-    max_x = max(0, w - crop_size)
-    max_y = max(0, h - crop_size)
+    max_x = max(0, w - CROP_SIZE)
+    max_y = max(0, h - CROP_SIZE)
     coord_col1, coord_col2 = st.columns(2)
     with coord_col1:
         x = st.number_input("X (columna)", min_value=0, max_value=max_x, value=0)
     with coord_col2:
         y = st.number_input("Y (fila)", min_value=0, max_value=max_y, value=0)
     try:
-        cropped = crop_manual(gray, int(x), int(y), size=crop_size)
+        cropped = crop_manual(gray, int(x), int(y), size=CROP_SIZE)
     except ValueError as e:
         st.error(str(e))
         st.stop()
@@ -277,17 +248,17 @@ st.caption(f"Recorte de {cropped.shape[1]}×{cropped.shape[0]} píxeles listo")
 st.markdown("### 🖼️ Vista previa del recorte")
 if crop_option == "Centro automático":
     cy, cx = (h - 1) // 2, (w - 1) // 2
-    half = crop_size // 2
+    half = CROP_SIZE // 2
     crop_x = cx - half
     crop_y = cy - half
 else:
     crop_x = int(x)
     crop_y = int(y)
 
-overlay_bgr = draw_crop_overlay(gray, crop_x, crop_y, size=crop_size)
+overlay_bgr = draw_crop_overlay(gray, crop_x, crop_y, size=CROP_SIZE)
 st.image(
     overlay_bgr,
-    caption=f"Imagen completa con recorte (rectángulo rojo = zona {crop_size}×{crop_size})",
+    caption=f"Imagen completa con recorte (rectángulo rojo = zona {CROP_SIZE}×{CROP_SIZE})",
     clamp=True,
     width="stretch",
 )
@@ -332,7 +303,6 @@ if st.button("🚀 Aplicar filtro", type="primary"):
     st.session_state.result = result_img
     st.session_state.raw = raw_img
     st.session_state.filter_applied = filter_option
-    st.session_state._crop_size_at_result = crop_size
     st.rerun()
 
 # --- Results display (SINGLE block, from session_state) ---
