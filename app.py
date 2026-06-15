@@ -139,7 +139,7 @@ if st.session_state.result is not None:
         st.session_state.result = None
         st.session_state.raw = None
         st.session_state.filter_applied = None
-        st.rerun()
+        st.session_state._crop_size_at_result = None
 
 # --- Download button (conditional on result) ---
 if st.session_state.result is not None:
